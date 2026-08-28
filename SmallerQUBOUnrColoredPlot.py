@@ -2,7 +2,10 @@
 """
 Created on Wed Sep 10 10:07:50 2025
 
+Main class to carry out experiments on the QUBO formulation for the 2D cutting stock problem 
+QUBO problems for small problems are saved for later numeric simulations
 @author: MarcelSeelbach(MSE)
+
 """
 import numpy as np
 import csv
@@ -22,9 +25,6 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt 
 import matplotlib.colors as mcolors
 
-
-
-
 import NealSolver
 import Highssolver
 import random
@@ -40,12 +40,18 @@ onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]
 ColorList=list(mcolors.XKCD_COLORS.values())
 random.shuffle(ColorList)
 
-rotationDis= True
+rotationDis= True # Consider Problem without allowing for rotations.
 StoreProblemInformation=[]
 NrProblems=0
 LWreadoutSuccess=False
 
+'''
+Defining the 3 cutting stock problems of interest.
+1. Problem with 3 pieces. Everything fits on the plate. SmallProblem
+2. Problem with 2 pieces. Everything fits on the plate. SmallestProblem
+3. Problem with 2 pieces. Only one piece fits. SmallestProblemNoSolPos
 
+'''
 W,L=24,10
 
 w=[10,9,8]
@@ -88,23 +94,18 @@ if all(valEl == 0 for valEl in value):
 
 StoreProblemInformation.append(['SmallestProblemNoSolPos',L,W,l,w,value,be])
 def EnergyLin(c,vec):
+    ''' Short function to calculate linear objective'''
     return c.T @ vec 
-def numpyArrayToNealDict(initSol):
-    dictToReturn={}
-    for k in range(initSol.shape[0]):
-        dictToReturn.update({k: int(initSol[k])}) 
-    return dictToReturn
 
-timeSave=[]
 
-#StoreProblemInformation.reverse()
+timeSave=[] #Store information about runtime
+
 for problemIter, problem in enumerate(StoreProblemInformation):
- # if problemIter==3: 
     
-    start= time.time()# previously timeit.timeit()
+    start= time.time()
     [descrStr,L,W ,l,w,value,be]= problem
-    print((L,W))
-    #Demand
+    print('Problem: ' +descrStr )
+    #Demands:
     requiredPieces  = [(l[i], w[i]) for i in range (len(l))]
     print('Demand:')
     print(be)
@@ -112,8 +113,6 @@ for problemIter, problem in enumerate(StoreProblemInformation):
     print((L,W))
     m=len(be)
     
-    reduceSizeBol= False
-    reduceSize = 10 # 40 #200
     l=[]
     w=[]
     beTilde=[]
@@ -122,17 +121,14 @@ for problemIter, problem in enumerate(StoreProblemInformation):
     
     for i in range(m):#[3,4,8,9]:#range(m):
         sameList=[]
-        for s in range(be[i]):
+        for s in range(be[i]): # Every piece is demanded once in the model. be is initial demand, while beTilde has only once as entry
             l.append( requiredPieces[i][1])
             w.append( requiredPieces[i][0]) 
             beTilde.append(1)
             valueTilde.append(value[i])
             SameParts.append(i)
-            if np.sum(np.array(be)[:i])+s>=reduceSize-1 and reduceSizeBol==True:
-                break
-        if np.sum(np.array(be)[:i+1])>reduceSize and reduceSizeBol==True:
-            break
-
+            
+       
     
     l.append(0)
     w.append(W)
@@ -157,8 +153,7 @@ for problemIter, problem in enumerate(StoreProblemInformation):
         
     startturnedAround= np.sum( be )-2
     
-    NrVariables=  2* N**2
-    ZVariables= N**2
+    NrVariables=  2* N**2 # Nr Variables
     
     
     lListsimple= [  l[ i ] for i in range(len(l)) for z in range(be[i])  ]#+ [0] +[L]
@@ -173,7 +168,7 @@ for problemIter, problem in enumerate(StoreProblemInformation):
     
     
     
-    def RecursiveCuttingPlan(XYsolution, Zsolution,currentEntry,joinedPieces, doneEntries, xPos ,yPos , cuttingStage, positionInfo=[] , rev=0 ) :
+    def RecursiveCuttingPlan(XYsolution,currentEntry, doneEntries, xPos ,yPos , cuttingStage, positionInfo=[] , rev=0 ) :
                 
                 #Find Out neighbouring Pieces
                 xCuts= (cuttingStage+rev)%2 
@@ -193,9 +188,8 @@ for problemIter, problem in enumerate(StoreProblemInformation):
                 currentxPos=xPos 
                 currentyPos=yPos
                 
-                relevantL=[lList[currentPiece ]]+ [lList[h ] for h in joinedPieces ]
-                relevantW=[wList[currentPiece ]]+ [wList[h ] for h in joinedPieces ]
-
+                relevantL=[lList[currentPiece ]]
+                relevantW=[wList[currentPiece ]]
                 
                 if currentPiece not in range(N-NrPlates-1,N):
                 
@@ -207,8 +201,8 @@ for problemIter, problem in enumerate(StoreProblemInformation):
                         parentParameter= len(lList)-1
                     else: # yCuts*lList[parentPiece] + xCuts* wList[parentPiece]
                         parentParameter= parentPiece
-                    CoordList=[(xPos,yPos)] +[( xPos + (1-xCuts)*  relevantL[a]   ,yPos + (1-yCuts)*  relevantW[a] ) for a in range(len(joinedPieces))  ]
-                    posInfo=[  [CoordList, cuttingStage , ( relevantL,relevantW   , parentParameter,  [currentPiece]+joinedPieces , currentEntry  )  ] ]
+                    CoordList=[(xPos,yPos)] 
+                    posInfo=[  [CoordList, cuttingStage , ( relevantL,relevantW   , parentParameter,  [currentPiece] , currentEntry  )  ] ]
 
     
     
@@ -225,17 +219,10 @@ for problemIter, problem in enumerate(StoreProblemInformation):
                         
                         if XYsolution[t]==1 and doneEntries[t]==0:
                             
-                            #check if piece is fused with other pieces
-                            joinedTogether=[]
-                            for h in range(N):
-                                if h != nextPieceIndex:
-                                    if Zsolution[ nextPieceIndex*N+  h ]==1 or Zsolution[ h*N+ nextPieceIndex  ]==1:
-                                        newlength += lList[h]
-                                        newwidth  += wList[h]
-                                        doneEntries[startingIndex+ N* currentPiece+h]=1
-                                        joinedTogether.append(h)
+                      
+                            
                             #check if there are more rectangles in subsequent cutting stages                    
-                            posInfo.extend(RecursiveCuttingPlan(XYsolution,Zsolution,t, joinedTogether  ,doneEntries, currentxPos  ,  currentyPos    , cuttingStage+1 ,positionInfo=[], rev= rev ))
+                            posInfo.extend(RecursiveCuttingPlan(XYsolution,t  ,doneEntries, currentxPos  ,  currentyPos    , cuttingStage+1 ,positionInfo=[], rev= rev ))
                             
                             currentxPos+=  xCuts* ( newlength )
                             
@@ -257,17 +244,17 @@ for problemIter, problem in enumerate(StoreProblemInformation):
         Output: objective vector c and and in. constraints [A,b]
         '''
         c= -csr_matrix(np.array( valueTilde*(2*N) + [0]*(N**2) ), dtype=int)
-        Qcost= csr_matrix( (NrVariables+ZVariables ,NrVariables+ZVariables), dtype=int )
+        Qcost= csr_matrix( (NrVariables ,NrVariables), dtype=int )
 
-        Asize= csr_matrix( (2*N ,NrVariables+ZVariables), dtype=int )
+        Asize= csr_matrix( (2*N ,NrVariables), dtype=int )
         
         bsize= np.zeros( (2*N ), dtype=int )
         
-        Qdemand= csr_matrix( (NrVariables+ZVariables ,NrVariables+ZVariables), dtype=int )
+        Qdemand= csr_matrix( (NrVariables ,NrVariables), dtype=int )
         
-        Qzcorr= csr_matrix( (NrVariables+ZVariables ,NrVariables+ZVariables), dtype=int )
+        Qzcorr= csr_matrix( (NrVariables ,NrVariables), dtype=int )
         
-        Ademand= csr_matrix( (N ,NrVariables+ZVariables), dtype=int )
+        Ademand= csr_matrix( (N ,NrVariables), dtype=int )
 
         bdemand= csr_matrix( np.ones(N), dtype=int )
         
@@ -290,7 +277,7 @@ for problemIter, problem in enumerate(StoreProblemInformation):
             
             AllOccPlaces=[]
             
-            for s in range(3*N):
+            for s in range(2*N):
   
 
                 AllOccPlaces.append(s*N+(k))
@@ -318,90 +305,16 @@ for problemIter, problem in enumerate(StoreProblemInformation):
                     
                     
                     
-        Ademand= csr_matrix((ADat2, (ARow2, ACol2)), shape= (N, NrVariables+ZVariables))
+        Ademand= csr_matrix((ADat2, (ARow2, ACol2)), shape= (N, NrVariables))
  
-        Qdemand= csr_matrix((ADat, (ARow, ACol)), shape= (NrVariables+ZVariables, NrVariables+ZVariables))
-
-        ADat=[]
-        ARow=[]
-        ACol=[]
-
-
-        for el in range(N):
-            for i in range(N):
-                for k in range(N):
-                    
-                    ADat.append(1)
-                    ARow.append(2*N**2+ k*N+el)#z_{k,el}
-                    ACol.append(N**2+ el*N+i ) #y_{el,i}}
-                    
-                    ADat.append(1)
-                    ARow.append(2*N**2+ k*N+el)#z_{k,el}
-                    ACol.append( el*N+i ) #y_{el,i}}
-                    
-          
-        Qzcorr = csr_matrix((ADat, (ARow, ACol)), shape= (NrVariables+ZVariables, NrVariables+ZVariables))
-
-        ADat=[]
-        ARow=[]
-        ACol=[]
-        
-        
-        for el in range(N):
-              for i in range(N-1-NrPlates):
-                  for k in range(N):
-                      
-                      ADat.append(valueTilde[i])
-                      ARow.append( k*N+el)
-                      ACol.append(2*N**2 + k*N+el ) 
-                      
-                      ADat.append(valueTilde[i])
-                      ARow.append(N**2+ k*N+el)
-                      ACol.append(2*N**2 + el*N+i ) 
-            
-        Qcost = csr_matrix((ADat, (ARow, ACol)), shape= (NrVariables+ZVariables, NrVariables+ZVariables))
+        Qdemand= csr_matrix((ADat, (ARow, ACol)), shape= (NrVariables, NrVariables))
 
 
 
 
         ListQuadraticTerms = [[],[]] # First width, then length
         
-        for i in range(N):
-            Qnew= csr_matrix((NrVariables+ZVariables ,NrVariables+ZVariables))
-            ADat=[]
-            ACol=[]
-            ARow=[]
-            for j in range(N):
-                
-                for k in range(N):
-                    ADat.append( l[k] )
-                    ACol.append( i*N+j)
-                    ARow.append(2*N**2+j*N+k )
-                    
-                    ADat.append( -l[k] )
-                    ACol.append(N**2+ i*N+j)
-                    ARow.append(2*N**2+i*N+k )
-            Qnew=csr_matrix((ADat, (ARow, ACol)), shape= (NrVariables+ZVariables, NrVariables+ZVariables)) 
-            
-            
-            ListQuadraticTerms[0].append(Qnew)
-            Qnew= csr_matrix((NrVariables+ZVariables ,NrVariables+ZVariables))
-            ADat=[]
-            ACol=[]
-            ARow=[]
-            for j in range(N):
-                 
-                 for k in range(N):
-                     ADat.append( w[k] )
-                     ACol.append(  N**2+i*N+j)
-                     ARow.append(2*N**2+j*N+k)
-                     
-                     ADat.append( -w[k])
-                     ACol.append( i*N+j)
-                     ARow.append(2*N**2+i*N+k )
-            Qnew=csr_matrix((ADat, (ARow, ACol)), shape= (NrVariables+ZVariables, NrVariables+ZVariables)) 
-            ListQuadraticTerms[1].append(Qnew)
-
+           
         
         ADat=[]
         ARow=[]
@@ -447,11 +360,11 @@ for problemIter, problem in enumerate(StoreProblemInformation):
             
             
         
-        Asize= csr_matrix((ADat, (ARow, ACol)), shape= (2*N, NrVariables+ZVariables))       
+        Asize= csr_matrix((ADat, (ARow, ACol)), shape= (2*N, NrVariables))       
         VariableDir= NrVariables//2
 
-        fixVariableToZero = np.zeros(NrVariables+ZVariables, dtype=int)
-        fixVariableToOne  = np.zeros(NrVariables+ZVariables, dtype=int)
+        fixVariableToZero = np.zeros(NrVariables, dtype=int)
+        fixVariableToOne  = np.zeros(NrVariables, dtype=int)
     
         for k in range(N):
             fixVariableToZero[ VariableDir + k*N +N-1 ]=1
@@ -466,7 +379,6 @@ for problemIter, problem in enumerate(StoreProblemInformation):
             fixVariableToZero[k*N+k]=1
             fixVariableToZero[VariableDir +k*N+k]=1
             
-            fixVariableToZero[2*N**2+ k*N+k]
             
             for s in range(N):
                 
@@ -506,7 +418,7 @@ for problemIter, problem in enumerate(StoreProblemInformation):
               
         restVariables= np.where(fixVariableToZero+fixVariableToOne==0)[0]
         
-        bounds = [  np.zeros(NrVariables+ZVariables, dtype=int)+fixVariableToOne,np.ones(NrVariables+ZVariables, dtype=int)-fixVariableToZero]
+        bounds = [  np.zeros(NrVariables, dtype=int)+fixVariableToOne,np.ones(NrVariables, dtype=int)-fixVariableToZero]
         bounds = [  np.zeros(NrVariables, dtype=int)+fixVariableToOne[:NrVariables],np.ones(NrVariables, dtype=int)-fixVariableToZero[:NrVariables]]
 
         A= vstack([Asize,Ademand])
@@ -517,7 +429,7 @@ for problemIter, problem in enumerate(StoreProblemInformation):
         endLin= time.time()
         
         whereToSave='Plots/' +descrStr
-        solList, bestSol,EnLin, EnQuad, bestIter = QUBOSA.AugmentedLagrangianQuad( solLin , scipy.sparse.diags(c.toarray(), [0]), Qcost ,Asize, bsize, Qdemand,Qzcorr,ListQuadraticTerms ,fixVariableToZero, fixVariableToOne,lList,wList, whereToSave , maxiter=10)
+        solList, bestSol,EnLin, EnQuad, bestIter = QUBOSA.AugmentedLagrangianQuad( solLin , scipy.sparse.diags(c.toarray(), [0]) ,Asize, bsize, Qdemand,ListQuadraticTerms ,fixVariableToZero, fixVariableToOne,lList,wList, whereToSave , maxiter=10)
         EnQuadVal= [EnQuadel[0,0] for EnQuadel in EnQuad ]
 
         plt.plot(EnLin, label='Lin')   
@@ -532,7 +444,7 @@ for problemIter, problem in enumerate(StoreProblemInformation):
     end= time.time()
     timeSave.append((end-start-endLin+startLin, endLin-startLin,bestIter, EnergyLinear.copy(),EnergyBest.copy() ))
 
-    def Plot(solXY, solZ, furtherDesc=None,iterDescr='') :   
+    def Plot(solXY, furtherDesc=None,iterDescr='') :   
           
          fac= 7
          fig = plt.figure(figsize= (fac,NrPlates*(W*fac)//L) ) 
@@ -547,7 +459,7 @@ for problemIter, problem in enumerate(StoreProblemInformation):
          
          for PlateNr in range(NrPlates):
              
-             cuttingInfo=RecursiveCuttingPlan(solXY, solZ , N*(N-1)+N-2-PlateNr , [], np.zeros(NrVariables)  , 0 ,0 , 1, positionInfo=[] , rev=0  )         
+             cuttingInfo=RecursiveCuttingPlan(solXY , N*(N-1)+N-2-PlateNr , [], np.zeros(NrVariables)  , 0 ,0 , 1, positionInfo=[] , rev=0  )         
              ax=axs[PlateNr]
              ax.set_xlim([0, L*1.1])
              ax.set_ylim([0, W*1.1])
@@ -613,16 +525,16 @@ for problemIter, problem in enumerate(StoreProblemInformation):
         
          plt.show()
          
-    def PlotMultiple(solList ,solZList, furtherDesc=None,iterDescr=''):
+    def PlotMultiple(solList , furtherDesc=None,iterDescr=''):
         for k in range(len(solList)):
-                Plot(solList[k],solZList[k] ,  furtherDesc=furtherDesc,iterDescr=str(k))
+                Plot(solList[k] ,  furtherDesc=furtherDesc,iterDescr=str(k))
      
      
     PlotMultiple(solList,[solElem[2*N**2: ] for solElem in solList] , 'Augmented Lagrangian '+str(len(restVariables))+'Qubits')
     plt.show()
     
     Plot(bestSol, bestSol [2*N**2: ] , 'Augmented Lagrangian',  iterDescr='BestSol' )#Plot(bestSol,np.zeros(int(bestSol.shape[0]//2)) , 'Augmented Lagrangian',  iterDescr='BestSol' )
-    Plot(solLin,np.zeros(int(solLin.shape[0]//2)) , 'HiGHS Linear Programming '+str(len(restVariables)- ZVariables)+' Nr Qubits',iterDescr='Lin')
+    Plot(solLin,np.zeros(int(solLin.shape[0]//2)) , 'HiGHS Linear Programming '+str(len(restVariables))+' Nr Qubits',iterDescr='Lin')
 
     #pickle.dump([sol, Energy  ,end-start ], open( "Plots/save"+descrStr+".p", "wb" ) )    
     

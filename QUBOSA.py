@@ -15,10 +15,7 @@ from scipy.sparse import csr_matrix, vstack
 import pickle 
 import scipy
 
-def aschedule(t,  T, a=1 ):
 
-    
-    return t/ T + a *t/T* ( t/T-1/2 )*(t/T-1)
 
 def FixVarinQUBO(Q, fixVariableToZero, fixVariableToOne ):
     restVariables = np.where(fixVariableToZero+fixVariableToOne==0)[0]
@@ -82,15 +79,15 @@ def GetQuadratFunction(i,N , xOry,Aineq, ListQuadraticTerms):
 
 
 
-def AugmentedLagrangianQuad(sol, Obj,Qcost,Aineq, bineq, Qdemand,Qzcorr,ListQuadraticTerms,fixVariableToZero, fixVariableToOne,lList ,wList,whereToSave  ,maxiter=15):
+def AugmentedLagrangianQuad(sol, Obj,Aineq, bineq, Qdemand,ListQuadraticTerms,fixVariableToZero, fixVariableToOne,lList ,wList,whereToSave  ,maxiter=15):
     
     #Implemented According to https://arxiv.org/pdf/2507.12159
     N= Aineq.shape[0]//2       
-    mu = np.array(wList+lList)**2 #np.max (np.abs(Obj.data))/10000  #Think about this more    
+    mu = np.array(wList+lList)**2 #np.max (np.abs(Obj.data))/10000  #Possible Initializations    
     lambdas =   np.ones(Aineq.shape[0])
     returnFull= np.zeros(Obj.shape[0])    
     bestSol= returnFull.copy()    
-    bestEnergy= Energy(bestSol, Obj+ Qcost)    
+    bestEnergy= Energy(bestSol, Obj)    
     bestLambdas= lambdas.copy()
     
     returnList=[]
@@ -108,20 +105,10 @@ def AugmentedLagrangianQuad(sol, Obj,Qcost,Aineq, bineq, Qdemand,Qzcorr,ListQuad
 
         TermList= xTerms+yTerms        
 
-        #QObjinp, Qlambdinp, const= getQMatrixfrom(Obj,Aineq, bineq, lambdas, mu /2)
-        if True:
-            QUBOPart, QUBOPartQuadr= getQMatrixfromList( FixVariableSquare(TermList,N ,returnFull),  Aineq,  bineq, lambdas, QuadratBool=False,mu=mu )
-        else:
-            
-            lambdas = bestLambdas
-            QUBOPart = getQMatrixfromList( TermList, Aineq,   bineq, lambdas, QuadratBool=True,mu=mu )
+        QUBOPart, QUBOPartQuadr= getQMatrixfromList( TermList,  Aineq,  bineq, lambdas, QuadratBool=False,mu=mu )
         
-        QObjinp=Obj+ Qcost
-        
-       
         #TODO multiply with lambda and square if z is fixed 
-        
-        
+               
         objFact=20#=10 from previous Experiments
         lagrangeFact = 1        
         
@@ -132,20 +119,10 @@ def AugmentedLagrangianQuad(sol, Obj,Qcost,Aineq, bineq, Qdemand,Qzcorr,ListQuad
         zCorrFact= demandFact
         fewzFact= 3*10**5
 
-        if True: 
-            QObjinpWithoutZPart,QdemandWithoutZPart,QzcorrWithoutZPart=FixVariableSquare([QObjinp,Qdemand,Qzcorr],N,returnFull)
-            fullQUBO=objFact*QObjinpWithoutZPart + lagrangeFact*(QUBOPart+ QUBOPartQuadr)+demandFact*QdemandWithoutZPart+ zCorrFact*QzcorrWithoutZPart+damping*scipy.sparse.diags((0.5*np.ones(returnFull.shape)-returnFull)[:QUBOPart.shape[0]])
-            fullQUBO= np.array(fullQUBO)
-        
-        else: 
-            
-            AllZ= np.zeros((1,3*N**2))
-            AllZ[0,2*N**2:]=1
-            ReduceZQubo= getEqualityConstraint(AllZ, np.array([0])) 
-            fullQUBO=objFact*QObjinp + lagrangeFact*QUBOPart+demandFact*Qdemand+fewzFact*ReduceZQubo+ zCorrFact*Qzcorr+damping*scipy.sparse.diags((0.5*np.ones(returnFull.shape)-returnFull)[:])
-            fullQUBO= np.array(fullQUBO)
-            
-       
+        QObjinpWithoutZPart,QdemandWithoutZPart,QzcorrWithoutZPart=[Obj,Qdemand]
+        fullQUBO=objFact*QObjinpWithoutZPart + lagrangeFact*(QUBOPart+ QUBOPartQuadr)+demandFact*QdemandWithoutZPart+ zCorrFact*QzcorrWithoutZPart+damping*scipy.sparse.diags((0.5*np.ones(returnFull.shape)-returnFull)[:QUBOPart.shape[0]])
+        fullQUBO= np.array(fullQUBO)
+             
         smallerQUBO=  FixVarinQUBO(fullQUBO, fixVariableToZero[:fullQUBO.shape[0]], fixVariableToOne[:fullQUBO.shape[0]] )
         plt.imshow( smallerQUBO.toarray())#np.maximum( np.minimum( fullQUBO,10*np.ones(fullQUBO.shape)),-10*np.ones(fullQUBO.shape)))
         
@@ -154,23 +131,20 @@ def AugmentedLagrangianQuad(sol, Obj,Qcost,Aineq, bineq, Qdemand,Qzcorr,ListQuad
         plt.colorbar()
         plt.savefig(whereToSave+'ImgPlotsLambdIt'+str(k)+'.png', format='png')
         plt.show()
-        #smallerQUBO.dtype=int
+
+        #smallerQUBO.dtype=int        
         returnSmall=NealSolver.runSimulatedQUBOSparseMult(smallerQUBO,outNumber=outNumber)#initial_states =[numpyArrayToNealDict(np.ones(Q.shape[0]))])
         
-    
-        if  True: 
-            
-            previousz= returnFull[2*N**2:].copy()
-            
-            returnFull=np.hstack([FullSol(returnSmall[0],fixVariableToZero[:fullQUBO.shape[0]], fixVariableToOne[:fullQUBO.shape[0]] ) ,previousz ])      
-            returnFullList=[ np.hstack([FullSol(returnSmall[t],fixVariableToZero[:fullQUBO.shape[0]], fixVariableToOne[:fullQUBO.shape[0]]),previousz ]) for t in range (outNumber)]
-            EnLin.append(Energy(returnFull[:2*N**2], QUBOPart))
-            EnQuad.append(Energy(returnFull[:2*N**2], QUBOPartQuadr))
-        else:
-                       
-            returnFull=FullSol(returnSmall[0],fixVariableToZero, fixVariableToOne )        
-            returnFullList=[ FullSol(returnSmall[t],fixVariableToZero, fixVariableToOne) for t in range (outNumber)]
-            
+        
+        
+        previousz= returnFull[2*N**2:].copy()
+        
+        returnFull=np.hstack([FullSol(returnSmall[0],fixVariableToZero[:fullQUBO.shape[0]], fixVariableToOne[:fullQUBO.shape[0]] ) ,previousz ])      
+        returnFullList=[ np.hstack([FullSol(returnSmall[t],fixVariableToZero[:fullQUBO.shape[0]], fixVariableToOne[:fullQUBO.shape[0]]),previousz ]) for t in range (outNumber)]
+        EnLin.append( Energy(returnFull[:2*N**2], QUBOPart ))
+        EnQuad.append( Energy(returnFull[:2*N**2], QUBOPartQuadr ))
+   
+        
         lastLambdas= lambdas.copy()
         lambdas  += np.average([ mu  *  np.maximum( np.zeros(Aineq.shape[0]) , (Aineq*returnFullList[returnFullElementNr] - bineq) )  for returnFullElementNr in range(avgNumber)],axis=0)
         #lambdas  +=  mu * ( Aineq*returnFull - bineq)  
@@ -183,7 +157,7 @@ def AugmentedLagrangianQuad(sol, Obj,Qcost,Aineq, bineq, Qdemand,Qzcorr,ListQuad
         
         returnList.append(returnFull)
         for returnFullElement in returnFullList:
-            newEnergy=Energy(returnFullElement,Obj+ Qcost)
+            newEnergy=Energy(returnFullElement,Obj)
             if newEnergy<bestEnergy and CheckFeasibility(returnFullElement,Aineq, bineq) and CheckUnique(returnFullElement,Qdemand):
                     bestEnergy= newEnergy
                     bestSol=  returnFullElement.copy()
@@ -220,7 +194,6 @@ def Solve(sol, Obj,Aineq, bineq, Qdemand,fixVariableToZero, fixVariableToOne):
     returnSmall=NealSolver.runSimulatedFullyConnectedQUBO(smallerQUBO)#initial_states =[numpyArrayToNealDict(np.ones(Q.shape[0]))])
 
     returnFull=FullSol(returnSmall,fixVariableToZero, fixVariableToOne)
-
 
     return returnFull
 
@@ -272,26 +245,7 @@ def getQMatrixfrom(QObj, Aineq, bineq, lambdas, mu =0):
     
     return QObj, Qlambd, const
 
-def FixVariableSquare(QuboList, N ,currSol):
-    
-    QlambList= []    
-    fixVariableToZero= np.zeros(currSol.shape)
-    fixVariableToOne= np.zeros(currSol.shape)
 
-    fixVariableToZero[np.where (currSol==0)[0]]=1 
-    fixVariableToOne[ np.where (currSol==1)[0]]=1
-    fixVariableToZero[:2*N**2]=0
-    fixVariableToOne[:2*N**2]=0
-    for k in range(len(QuboList)):
-        
-
-
-        
-        QlambList.append(  FixVarinQUBO( QuboList[k].toarray() , fixVariableToZero, fixVariableToOne )  )
-        
-        
-        
-    return QlambList
     
     
 def getQMatrixfromList( TermsList,  Aineq,  bineq, lambdas, QuadratBool=False,mu =0):

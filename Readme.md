@@ -7,7 +7,7 @@
 This is the official repository for the publication "Formulating Multistage Cutting Stock Problems as QUBO".
 The work presents a QUBO formulation of the multstage 2D cutting stock problem. The QUBOs could for example be solved via quantum annealing, but in this repository the simulated annealing sampler are used for experimental tests.
 The preprint can be found at [TBD](https://arxiv.org/abs/2507.12536).
-[comment]:#To run the code without a quantum annealer on can use [D-Wave neal](https://docs.ocean.dwavesys.com/projects/neal/en/latest/) instead of a QPU Sampler.
+[comment]: #To run the code without a quantum annealer on can use [D-Wave neal](https://docs.ocean.dwavesys.com/projects/neal/en/latest/) instead of a QPU Sampler.
 
 
 
@@ -25,7 +25,7 @@ The preprint can be found at [TBD](https://arxiv.org/abs/2507.12536).
 conda create -n 2DCS_QUBOs-env python=3.8
 conda activate 2DCS_QUBOs-env
 ```
-[comment]:# -The [D-Wave ocean sdk](https://docs.ocean.dwavesys.com/en/stable/) can be installed with <br/>
+[comment]: # -The [D-Wave ocean sdk](https://docs.ocean.dwavesys.com/en/stable/) can be installed with <br/>
 `python -m pip install dwave-ocean-sdk` <br/> 
 and following the steps from [https://docs.ocean.dwavesys.com/en/stable/overview/install.html](https://docs.ocean.dwavesys.com/en/stable/overview/install.html). In particular to 
 get access to the solvers from D-Wave one has to create an account for D-Wave Leap ([https://cloud.dwavesys.com/leap/login/?next=/leap/](https://cloud.dwavesys.com/leap/login/?next=/leap/)) and

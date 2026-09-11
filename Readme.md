@@ -32,15 +32,15 @@ conda activate 2DCS_QUBOs-env
 To conduct expirements on literature problem instances we recommend a download from https://github.com/henriquebecker91/phd/tree/master/instances. 
 
 ## Code description
-In the following we give a description about the content of the 5 folders:
+In the following we give a description about the content of the folders:
 
+- Benchmarking contains code to reproduce the Numerical Experiments with Simulated Annealing Sampler. The folder SmallSimulation contains benchmark instances to test quantum annealing protocol simulations.
 
+- mainPlot.py is the main class to load problem instances solve them and plot the solutions.
 
-- SmallerQUBOUnrColoredPlot is the main class to load problem instances solve them and plot the solutions.
+- In QUBOSA.py the Augmented Lagrangian Method from the publication is written down.
 
-- In QUBOSA the Augmented Lagrangian Method from the publication is written down.
-
-- The class Highssolver is for solving the linear programming formulation via the [HiGHs](https://highs.dev/) solver and the NealSolver class uses [D-Wave neal](https://docs.ocean.dwavesys.com/projects/neal/en/latest/) to solve QUBOs.
+- The utilityclasses folder should make using other solvers easier in our context: The class Highssolver is for solving the linear programming formulation via the [HiGHs](https://highs.dev/) solver and the NealSolver class uses [D-Wave neal](https://docs.ocean.dwavesys.com/projects/neal/en/latest/) to solve QUBOs.
 
 
 
